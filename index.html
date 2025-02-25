@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 百度统计代码（替换你的ID） -->
+<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?6e2abf2d1bd3cd3fbc1a5461e3d7c859";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+
+
+    <title>属地客服系统</title>
+    <style>
+        /* 原有CSS样式保持不变 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Microsoft YaHei", sans-serif; background: #f5f5f5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-top: 40px; }
+        h1 { color: #333; font-size: 22px; text-align: center; margin-bottom: 25px; }
+        .qr-box { position: relative; margin: 20px 0; min-height: 300px; }
+        #qrImage { width: 100%; max-width: 280px; height: auto; margin: 0 auto; display: block; border: 1px solid #eee; border-radius: 8px; opacity: 0; transition: opacity 0.3s; }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; font-size: 16px; }
+        .manual-select { display: none; margin-top: 25px; text-align: center; }
+        .region-btn { background: #07c160; color: white; border: none; padding: 12px 20px; border-radius: 6px; margin: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .region-btn:hover { background: #06ad56; transform: translateY(-1px); }
+        footer { margin-top: 30px; font-size: 12px; color: #666; text-align: center; line-height: 1.6; }
+        @media (max-width: 480px) {
+            .container { padding: 20px; }
+            h1 { font-size: 20px; }
+            .region-btn { padding: 10px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>请扫描二维码添加属地客服</h1>
+        
+        <div class="qr-box">
+            <div class="loading">正在为您匹配属地客服...</div>
+            <img id="qrImage" alt="客服二维码">
+        </div>
+
+        <!-- 联系方式表单（替换你的Formspree ID） -->
+        <div class="contact-form" style="margin-top:20px; display:none;" id="contactForm">
+            <form action="https://wj.qq.com/s2/18136460/f29b/" method="POST">
+                <input type="text" name="微信号" placeholder="请输入微信号" 
+                       style="width:100%; padding:10px; margin:10px 0; border:1px solid #ddd;" required>
+                <button type="submit" 
+                        style="background:#07c160; color:white; border:none; padding:12px 20px; width:100%;">
+                    提交联系方式
+                </button>
+            </form>
+        </div>
+
+        <div class="manual-select" id="manualSelect">
+            <p style="color:#666; margin-bottom:15px;">自动定位失败，请手动选择：</p>
+            <button class="region-btn" data-code="SC">四川省</button>
+            <button class="region-btn" data-code="SN">陕西省</button>
+            <button class="region-btn" data-code="HA">河南省</button>
+            <button class="region-btn" data-code="default">其他地区</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>我们根据您的网络位置提供属地化服务</p>
+        <p>客服服务时间：工作日 9:00-18:00</p>
+        <p><a href="privacy.html" style="color:#666;">隐私政策</a></p>
+    </footer>
+
+    <script>
+    // 动态配置加载系统
+    let isLoading = true;
+    const qrImage = document.getElementById('qrImage');
+    const loading = document.querySelector('.loading');
+    const manualSelect = document.getElementById('manualSelect');
+    const contactForm = document.getElementById('contactForm');
+
+    // 核心函数：加载配置
+    async function loadConfig() {
+        try {
+            const response = await fetch('https://raw.githubusercontent.com/q539561760/wangwei/refs/heads/main/data.json?token=GHSAT0AAAAAAC7OQW3OSRMB3LCT4VLJYSREZ54DJ4A);
+            if (!response.ok) throw new Error('配置加载失败');
+            
+            const data = await response.json();
+            const config = {};
+            
+            data.forEach(item => {
+                config[item.ProvinceCode] = {
+                    url: item.QR_URL,
+                    title: item.Title,
+                    footer: item.FooterText
+                };
+            });
+            
+            return config;
+        } catch (error) {
+            console.error('配置加载失败:', error);
+            return null;
+        }
+    }
+
+    // 显示二维码和内容
+    function showQR(configData) {
+        const img = new Image();
+        img.src = configData.url;
+        
+        img.onload = () => {
+            qrImage.src = configData.url;
+            qrImage.style.opacity = '1';
+            document.querySelector('h1').textContent = configData.title;
+            document.querySelector('footer').innerHTML = configData.footer;
+            loading.style.display = 'none';
+            contactForm.style.display = 'block';
+            isLoading = false;
+        };
+        
+        img.onerror = () => {
+            qrImage.src = 'https://默认二维码地址.jpg';
+            loading.textContent = '二维码加载失败，已显示默认客服';
+        };
+    }
+
+    // 自动定位逻辑
+    async function autoDetect() {
+        const config = await loadConfig();
+        if (!config) {
+            manualSelect.style.display = 'block';
+            loading.style.display = 'none';
+            return;
+        }
+
+        try {
+            const ipResponse = await fetch('https://restapi.amap.com/v3/ip?key=6abe5abb5b7c5f38a2c07988af022777');
+            const ipData = await ipResponse.json();
+            const provinceCode = getProvinceCode(ipData.province);
+            showQR(config[provinceCode] || config.default);
+        } catch (error) {
+            console.error('定位失败:', error);
+            manualSelect.style.display = 'block';
+            loading.style.display = 'none';
+        }
+    }
+
+    // 省份编码转换
+    function getProvinceCode(provinceName) {
+        const provinceMap = { '四川省': 'SC', '陕西省': 'SN', '河南省': 'HA' };
+        return provinceMap[provinceName] || 'default';
+    }
+
+    // 手动选择事件
+    document.querySelectorAll('.region-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (isLoading) return;
+            
+            isLoading = true;
+            loading.style.display = 'block';
+            qrImage.style.opacity = '0';
+            
+            const config = await loadConfig();
+            if (config) {
+                showQR(config[btn.dataset.code] || config.default);
+            }
+        });
+    });
+
+    // 初始化
+    autoDetect();
+
+    // 10秒超时处理
+    setTimeout(() => {
+        if (isLoading) {
+            loading.textContent = '定位超时，请手动选择地区';
+            manualSelect.style.display = 'block';
+            isLoading = false;
+        }
+    }, 10000);
+    </script>
+
+    <!-- 管理入口 -->
+    <div style="position:fixed; bottom:10px; right:10px;">
+        <a href="admin.html" style="color:#666; text-decoration:none; font-size:12px;">管理后台</a>
+    </div>
+</body>
+</html>
